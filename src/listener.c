@@ -3,14 +3,18 @@
 
 // 现在是根据内容去判断加入还是删除，后面可以改成根据timeout删除
 
-#define TCP_SYN 0
-#define TCP_SYN_CONFIRM 1
-#define TCP_ACK 2
-#define TCP_CLOSE 3
-#define TCP_CLOSE_CONFIRM 4
-#define TCP_NO_SUPPORT -1
+enum tcp_pkt_type
+{
+    TCP_SYN,
+    TCP_SYN_CONFIRM,
+    TCP_ACK,
+    TCP_CLOSE,
+    TCP_CLOSE_CONFIRM,
+    TCP_NO_SUPPORT,
+};
 
-static int get_tcp_pkt_type(struct rte_mbuf *mbuf)
+static int
+get_tcp_pkt_type(struct rte_mbuf *mbuf)
 {
     struct rte_ether_hdr *eth_hdr;
     struct rte_ipv4_hdr *ip_hdr;
@@ -76,8 +80,6 @@ static int handle_tcp_syn(struct rte_mbuf *mbuf)
 
 static int handle_tcp_syn_confirm(struct rte_mbuf *mbuf)
 {
-
-    
 }
 
 static int handle_recv_tcp_pkt(struct rte_mbuf *mbuf)
