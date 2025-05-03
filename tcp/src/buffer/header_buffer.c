@@ -20,8 +20,8 @@ int find_header_index(header_buffer_t *header_buf, uint32_t ip, uint16_t port)
     for (int i = 0; i < header_buf->size; i++)
     {
         struct rte_ipv4_hdr *ip_header = &header_buf->buffer[i].ip_header;
-        struct rte_udp_hdr *udp_header = &header_buf->buffer[i].udp_header;
-        if (ip_header->dst_addr == ip && udp_header->dst_port == port)
+        struct rte_tcp_hdr *tcp_header = &header_buf->buffer[i].udp_header;
+        if (ip_header->dst_addr == ip && tcp_header->dst_port == port)
         {
             return i;
         }
