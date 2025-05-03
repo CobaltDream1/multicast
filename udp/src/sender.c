@@ -116,12 +116,12 @@ int sender_init(size_t max, uint32_t src_ip, uint32_t src_port)
 //     }
 // }
 
-void send_udp_packet(char *payload, size_t payload_size)
+void send_udp_packet(const char *payload, size_t payload_size)
 {
     size_t total_packets = header_buffer.size;
     uint8_t *headers_base = (uint8_t *)header_buffer.buffer;
 
-    struct rte_mbuf **tx_mbufs = malloc(sizeof(struct rte_mbuf *) * total_packets);
+    struct rte_mbuf **tx_mbufs = (struct rte_mbuf **)malloc(sizeof(struct rte_mbuf *) * total_packets);
     if (tx_mbufs == NULL)
         rte_exit(EXIT_FAILURE, "Cannot allocate tx_mbuf array\n");
 
@@ -197,7 +197,7 @@ void send_udp_packet(char *payload, size_t payload_size)
 // 向所有客户端发送心跳包
 void packet_sender()
 {
-    char *payload = "Hello, multicast!!!";
+    const char *payload = "Hello, multicast!!!";
     size_t payload_size = strlen(payload);
     while (1)
     {

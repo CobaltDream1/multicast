@@ -3,7 +3,7 @@
 
 int header_buffer_init(header_buffer_t *header_buf, size_t max)
 {
-    header_buf->buffer = rte_malloc(NULL, max * sizeof(header_t), 0);
+    header_buf->buffer = (header_t *)rte_malloc(NULL, max * sizeof(header_t), 0);
     if (header_buf->buffer == NULL) {
         printf("failed to allocate memory for header_buffer\n");
         return -1;
@@ -58,6 +58,8 @@ int modify_header(header_buffer_t *header_buf, int index, uint32_t ip, uint16_t 
     memcpy(header_buf->buffer[index].ethernet_header.dst_addr.addr_bytes, mac, 6);
     header_buf->buffer[index].ip_header.dst_addr = rte_cpu_to_be_32(ip);
     header_buf->buffer[index].udp_header.dst_port = rte_cpu_to_be_16(port);
+
+    return 1;
 }
 
 int del_header(header_buffer_t *header_buf, int index)
