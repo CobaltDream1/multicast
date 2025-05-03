@@ -2,14 +2,14 @@
 #define HEADER_BUFFER_H
 
 #include <rte_ip.h>
-#include <rte_udp.h>
+#include <rte_tcp.h>
 #include <rte_ether.h>
 
 typedef struct
 {
     struct rte_ether_hdr ethernet_header;
     struct rte_ipv4_hdr ip_header;
-    struct rte_udp_hdr udp_header;
+    struct rte_tcp_hdr tcp_header;
 } header_t;
 
 #define HEADER_SIZE sizeof(header_t)

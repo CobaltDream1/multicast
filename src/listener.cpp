@@ -38,7 +38,7 @@ get_tcp_pkt_type(struct rte_mbuf *mbuf)
     //     return -1;
     // }
 
-    tcp_hdr = (struct rte_udp_hdr *)((uint8_t *)ip_hdr + sizeof(struct rte_ipv4_hdr));
+    tcp_hdr = (struct rte_tcp_hdr *)((uint8_t *)ip_hdr + sizeof(struct rte_ipv4_hdr));
 
     if (ip_hdr->dst_addr != SRC_IP || tcp_hdr->dst_port != SERVER_PORT)
     {
@@ -80,6 +80,7 @@ static int handle_tcp_syn(struct rte_mbuf *mbuf)
 
 static int handle_tcp_syn_confirm(struct rte_mbuf *mbuf)
 {
+    return 0;
 }
 
 static int handle_recv_tcp_pkt(struct rte_mbuf *mbuf)

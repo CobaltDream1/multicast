@@ -11,10 +11,10 @@ int main(int argc, char *argv[])
     pthread_t listener_thread;
     pthread_create(&listener_thread, NULL, listen_client, NULL);
 
-    printf("listening started...\n");
-    printf("sending started...\n");
-    // 主循环：处理命令 发送消息
-    packet_sender();
+    // printf("listening started...\n");
+    // printf("sending started...\n");
+    // // 主循环：处理命令 发送消息
+    // packet_sender();
     while(1) {
 
     }

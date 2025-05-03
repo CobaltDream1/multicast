@@ -43,5 +43,5 @@ void global_init(int argc, char *argv[])
 {
     dpdk_init(argc, argv);
     init_cmd_buffer(BUFFER_SIZE);
-    sender_init(BUFFER_SIZE, SRC_IP, SERVER_PORT);
+    // sender_init(BUFFER_SIZE, SRC_IP, SERVER_PORT);
 }

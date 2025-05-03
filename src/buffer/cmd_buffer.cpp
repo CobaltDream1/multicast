@@ -1,5 +1,6 @@
 #include "cmd_buffer.h"
 #include "header_buffer.h"
+#include <vector>
 
 int buffer_is_full(ring_param_t *ring_param)
 {
@@ -13,11 +14,11 @@ int buffer_is_empty(ring_param_t *ring_param)
 
 cmd_add_buffer_t *init_cmd_add_buffer(size_t size)
 {
-    cmd_add_buffer_t *rb = malloc(sizeof(cmd_add_buffer_t));
+    cmd_add_buffer_t *rb = (cmd_add_buffer_t *)malloc(sizeof(cmd_add_buffer_t));
     if (!rb)
         return NULL;
 
-    rb->buffer = malloc(sizeof(cmd_add_t) * size);
+    rb->buffer = (cmd_add_t *)malloc(sizeof(cmd_add_t) * size);
     if (!rb->buffer)
     {
         free(rb);
@@ -57,11 +58,11 @@ void free_cmd_del_buffer(cmd_del_buffer_t *b)
 
 cmd_del_buffer_t *init_cmd_del_buffer(size_t size)
 {
-    cmd_del_buffer_t *rb = malloc(sizeof(cmd_del_buffer_t));
+    cmd_del_buffer_t *rb = (cmd_del_buffer_t *)malloc(sizeof(cmd_del_buffer_t));
     if (!rb)
         return NULL;
 
-    rb->buffer = malloc(sizeof(cmd_del_t) * size);
+    rb->buffer = (cmd_del_t *)malloc(sizeof(cmd_del_t) * size);
     if (!rb->buffer)
     {
         free(rb);
@@ -230,7 +231,8 @@ int handle_cmd(header_buffer_t *header_buffer)
     size_t del_num = (del_buffer_write + del_buffer_max - cmd_del_rb->ring_param.read_index) % del_buffer_max;
 
     // 对于del命令需要找到对应的index
-    int *del_index_list = malloc(del_num * sizeof(int));
+    std::vector<int> del_index_list(del_num, 0);
+    // int *del_index_list = (int *)malloc(del_num * sizeof(int));
     for (size_t i = 0; i < del_num; i++)
     {
         cmd_del_t *cmd_del = &cmd_del_rb->buffer[(del_buffer_read + i) % del_buffer_max];
@@ -296,7 +298,6 @@ int handle_cmd(header_buffer_t *header_buffer)
     // 最后从ring_buffer移除掉这些已经被处理的命令
     cmd_add_rb->ring_param.read_index = add_buffer_write;
     cmd_del_rb->ring_param.read_index = del_buffer_write;
-
 
     return 1;
 }

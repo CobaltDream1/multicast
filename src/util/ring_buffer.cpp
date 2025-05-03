@@ -71,5 +71,5 @@ void* ring_buffer_get_one(ring_buffer_t *rb)
 {
     size_t buffer_read = rb->read_index;
 
-    return &rb->buffer[buffer_read];
+    return rb->buffer + rb->element_size * buffer_read;
 }

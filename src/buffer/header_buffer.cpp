@@ -3,7 +3,7 @@
 
 int header_buffer_init(header_buffer_t *header_buf, size_t max)
 {
-    header_buf->buffer = rte_malloc(NULL, max * sizeof(header_t), 0);
+    header_buf->buffer = (header_t *)rte_malloc(NULL, max * sizeof(header_t), 0);
     if (header_buf->buffer == NULL) {
         printf("failed to allocate memory for header_buffer\n");
         return -1;
@@ -17,10 +17,10 @@ int header_buffer_init(header_buffer_t *header_buf, size_t max)
 
 int find_header_index(header_buffer_t *header_buf, uint32_t ip, uint16_t port)
 {
-    for (int i = 0; i < header_buf->size; i++)
+    for (size_t i = 0; i < header_buf->size; i++)
     {
         struct rte_ipv4_hdr *ip_header = &header_buf->buffer[i].ip_header;
-        struct rte_tcp_hdr *tcp_header = &header_buf->buffer[i].udp_header;
+        struct rte_tcp_hdr *tcp_header = &header_buf->buffer[i].tcp_header;
         if (ip_header->dst_addr == ip && tcp_header->dst_port == port)
         {
             return i;
@@ -40,7 +40,7 @@ int append_header(header_buffer_t *header_buf, uint32_t ip, uint16_t port, uint8
 
     memcpy(header_buf->buffer[header_buf->size].ethernet_header.dst_addr.addr_bytes, mac, 6);
     header_buf->buffer[header_buf->size].ip_header.dst_addr = rte_cpu_to_be_32(ip);
-    header_buf->buffer[header_buf->size].udp_header.dst_port = rte_cpu_to_be_16(port);
+    header_buf->buffer[header_buf->size].tcp_header.dst_port = rte_cpu_to_be_16(port);
 
     header_buf->size += 1;
 
@@ -57,7 +57,7 @@ int modify_header(header_buffer_t *header_buf, int index, uint32_t ip, uint16_t 
 
     memcpy(header_buf->buffer[index].ethernet_header.dst_addr.addr_bytes, mac, 6);
     header_buf->buffer[index].ip_header.dst_addr = rte_cpu_to_be_32(ip);
-    header_buf->buffer[index].udp_header.dst_port = rte_cpu_to_be_16(port);
+    header_buf->buffer[index].tcp_header.dst_port = rte_cpu_to_be_16(port);
 }
 
 int del_header(header_buffer_t *header_buf, int index)
@@ -76,8 +76,8 @@ int del_header(header_buffer_t *header_buf, int index)
     memcpy(header_buf->buffer[index].ethernet_header.dst_addr.addr_bytes, header_buf->buffer[header_buf->size - 1].ethernet_header.dst_addr.addr_bytes, 6);
     uint32_t ip = header_buf->buffer[header_buf->size - 1].ip_header.dst_addr;
     header_buf->buffer[header_buf->size].ip_header.dst_addr = ip;
-    uint16_t port = header_buf->buffer[header_buf->size - 1].udp_header.dst_port;
-    header_buf->buffer[header_buf->size].udp_header.dst_port = port;
+    uint16_t port = header_buf->buffer[header_buf->size - 1].tcp_header.dst_port;
+    header_buf->buffer[header_buf->size].tcp_header.dst_port = port;
 
     header_buf->size -= 1;
 

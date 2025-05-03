@@ -30,7 +30,7 @@ typedef struct
     int tick_interval;
 } time_wheel_t;
 
-time_wheel_t *time_wheel_init(int slot_count, int tick_interval);
+int time_wheel_init(time_wheel_t* time_wheel, int slot_count, int tick_interval);
 
 // 添加任务到时间轮
 void add_task(time_wheel_t *time_wheel, int timeout_seconds, task_callback cb, void *arg);
