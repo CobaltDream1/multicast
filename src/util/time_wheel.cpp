@@ -1,6 +1,6 @@
 #ifndef TIME_WHEEL_H
 #define TIME_WHEEL_H
-
+#include "time_wheel.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -12,67 +12,47 @@
 
 #define MAX_EVENTS 10
 
-typedef void (*task_callback)(void *);
-
-typedef struct task_t
+int time_wheel_t::time_wheel_init(int slot_count, int tick_interval)
 {
-    int rotation;        // 还需要转几圈
-    task_callback cb;    // 回调函数
-    void *arg;           // 参数
-    struct task_t *next; // 链表
-} task_t;
-
-typedef struct
-{
-    task_t **slots;
-    int current_slot;
-    int slot_count;
-    int tick_interval;
-} time_wheel_t;
-
-int time_wheel_init(time_wheel_t *tw, int slot_count, int tick_interval)
-{
-    tw->slots = (task_t **)malloc(slot_count * sizeof(task_t *));
-    if (tw->slots == NULL)
+    this->slots = (task_t **)malloc(slot_count * sizeof(task_t *));
+    if (this->slots == NULL)
     {
         printf("failed to malloc for time wheel slots\n");
-        free(tw);
-        tw = NULL;
         return 0;
     }
 
     for (int i = 0; i < slot_count; i++)
     {
-        tw->slots[i] = NULL;
+        this->slots[i] = NULL;
     }
-    tw->current_slot = 0;
-    tw->slot_count = slot_count;
-    tw->tick_interval = tick_interval;
+    this->current_slot = 0;
+    this->slot_count = slot_count;
+    this->tick_interval = tick_interval;
 
     return 1;
 }
 
 // 添加任务到时间轮
-void add_task(time_wheel_t *time_wheel, int timeout_seconds, task_callback cb, void *arg)
+void time_wheel_t::add_task(int timeout_seconds, task_callback cb, void *arg)
 {
-    int ticks = timeout_seconds / time_wheel->tick_interval;
-    int rotation = ticks / time_wheel->slot_count;
-    int slot = (time_wheel->current_slot + (ticks % time_wheel->slot_count)) % time_wheel->slot_count;
+    int ticks = timeout_seconds / this->tick_interval;
+    int rotation = ticks / this->slot_count;
+    int slot = (this->current_slot + (ticks % this->slot_count)) % this->slot_count;
 
     task_t *task = (task_t *)malloc(sizeof(task_t));
     task->rotation = rotation;
     task->cb = cb;
     task->arg = arg;
-    task->next = time_wheel->slots[slot];
-    time_wheel->slots[slot] = task;
+    task->next = this->slots[slot];
+    this->slots[slot] = task;
 
     printf("Add task to slot %d (rotation=%d)\n", slot, rotation);
 }
 
 // 执行当前槽的任务
-void exec_slot(time_wheel_t *time_wheel)
+void time_wheel_t::exec_slot()
 {
-    task_t **pp = &time_wheel->slots[time_wheel->current_slot];
+    task_t **pp = &slots[this->current_slot];
     while (*pp)
     {
         task_t *t = *pp;
@@ -90,7 +70,7 @@ void exec_slot(time_wheel_t *time_wheel)
         }
     }
 
-    time_wheel->current_slot = (time_wheel->current_slot + 1) % time_wheel->slot_count;
+    this->current_slot = (this->current_slot + 1) % this->slot_count;
 }
 
 // int main()

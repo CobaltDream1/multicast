@@ -22,25 +22,25 @@ int task_queue_init();
 void launch();
 
 // 第一种任务：重发建立连接过程中的第二次握手
-typedef struct
+struct syn_task_t
 {
     // 全体client的状态都放在一个大表里面，index是这个表里面的index
     int client_index;
     // 表明这是第几次重新发送第二次握手
     int retry_times;
-} syn_task_t;
+};
 
 int add_syn_task(syn_task_t syn_task);
 
 // 第二种任务：TCP重发
-typedef struct
+struct retrans_task_t
 {
     // 重发不是以client进行的，而是以packet进行的
     // 也是需要一个表，这个表里面存放着全体packet
     int packet_index;
 
     int retry_times;
-} retrans_task_t;
+};
 
 int add_retrans_task(retrans_task_t);
 

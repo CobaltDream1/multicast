@@ -1,42 +1,34 @@
-#ifndef TIME_WHEEL_H
-#define TIME_WHEEL_H
-
-#include <stdio.h>
-#include <stdlib.h>
+#pragma once
 #include <stdint.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/epoll.h>
-#include <sys/timerfd.h>
-#include <time.h>
 
 #define MAX_EVENTS 10
 
 typedef void (*task_callback)(void *);
 
-typedef struct task_t
+struct task_t
 {
     int rotation;        // 还需要转几圈
     task_callback cb;    // 回调函数
     void *arg;           // 参数
     struct task_t *next; // 链表
-} task_t;
+};
 
-typedef struct
+class time_wheel_t
 {
     task_t **slots;
     int current_slot;
     int slot_count;
     int tick_interval;
-} time_wheel_t;
 
-int time_wheel_init(time_wheel_t* time_wheel, int slot_count, int tick_interval);
+public:
+    int time_wheel_init(int slot_count, int tick_interval);
 
-// 添加任务到时间轮
-void add_task(time_wheel_t *time_wheel, int timeout_seconds, task_callback cb, void *arg);
+    // 添加任务到时间轮
+    void add_task(int timeout_seconds, task_callback cb, void *arg);
 
-// 执行当前槽的任务
-void exec_slot(time_wheel_t *time_wheel);
+    // 执行当前槽的任务
+    void exec_slot();
+};
 
 // int main()
 // {
@@ -74,5 +66,3 @@ void exec_slot(time_wheel_t *time_wheel);
 //     close(epfd);
 //     return 0;
 // }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef GLOBAL_H
-#define GLOBAL_H
+#pragma once
 #include "rte_ethdev.h"
 #include <rte_mbuf.h>
 #include <stdint.h>
@@ -21,4 +20,3 @@ extern struct rte_mempool *mbuf_pool;
 
 void global_init(int argc, char *argv[]);
 
-#endif // GLOBAL_H
