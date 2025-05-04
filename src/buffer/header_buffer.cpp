@@ -3,8 +3,8 @@
 
 int header_buffer_init(header_buffer_t *header_buf, size_t max)
 {
-    header_buf->buffer = (header_t *)rte_malloc(NULL, max * sizeof(header_t), 0);
-    if (header_buf->buffer == NULL) {
+    header_buf->buffer = (header_t *)rte_malloc(nullptr, max * sizeof(header_t), 0);
+    if (header_buf->buffer == nullptr) {
         printf("failed to allocate memory for header_buffer\n");
         return -1;
     }

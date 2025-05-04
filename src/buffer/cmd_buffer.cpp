@@ -16,13 +16,13 @@ cmd_add_buffer_t *init_cmd_add_buffer(size_t size)
 {
     cmd_add_buffer_t *rb = (cmd_add_buffer_t *)malloc(sizeof(cmd_add_buffer_t));
     if (!rb)
-        return NULL;
+        return nullptr;
 
     rb->buffer = (cmd_add_t *)malloc(sizeof(cmd_add_t) * size);
     if (!rb->buffer)
     {
         free(rb);
-        return NULL;
+        return nullptr;
     }
 
     rb->ring_param.max = size;
@@ -34,9 +34,9 @@ cmd_add_buffer_t *init_cmd_add_buffer(size_t size)
 
 void free_cmd_add_buffer(cmd_add_buffer_t *b)
 {
-    if (b != NULL)
+    if (b != nullptr)
     {
-        if (b->buffer != NULL)
+        if (b->buffer != nullptr)
         {
             free(b->buffer);
         }
@@ -46,9 +46,9 @@ void free_cmd_add_buffer(cmd_add_buffer_t *b)
 
 void free_cmd_del_buffer(cmd_del_buffer_t *b)
 {
-    if (b != NULL)
+    if (b != nullptr)
     {
-        if (b->buffer != NULL)
+        if (b->buffer != nullptr)
         {
             free(b->buffer);
         }
@@ -60,13 +60,13 @@ cmd_del_buffer_t *init_cmd_del_buffer(size_t size)
 {
     cmd_del_buffer_t *rb = (cmd_del_buffer_t *)malloc(sizeof(cmd_del_buffer_t));
     if (!rb)
-        return NULL;
+        return nullptr;
 
     rb->buffer = (cmd_del_t *)malloc(sizeof(cmd_del_t) * size);
     if (!rb->buffer)
     {
         free(rb);
-        return NULL;
+        return nullptr;
     }
 
     rb->ring_param.max = size;
@@ -149,20 +149,20 @@ static cmd_del_buffer_t *cmd_del_rb;
 
 int init_cmd_buffer(size_t size)
 {
-    if (cmd_add_rb != NULL || cmd_del_rb != NULL)
+    if (cmd_add_rb != nullptr || cmd_del_rb != nullptr)
     {
         printf("cmd_add_rb or cmd_del_rb already allocated\n");
         return 0;
     }
 
     cmd_add_rb = init_cmd_add_buffer(size);
-    if (cmd_add_rb == NULL)
+    if (cmd_add_rb == nullptr)
     {
         printf("failed to allocate cmd_add_rb\n");
         return 0;
     }
     cmd_del_rb = init_cmd_del_buffer(size);
-    if (cmd_del_rb == NULL)
+    if (cmd_del_rb == nullptr)
     {
         printf("failed to allocate cmd_del_rb\n");
         return 0;
@@ -171,7 +171,7 @@ int init_cmd_buffer(size_t size)
 
 int add_client(uint32_t ip, uint16_t port, uint8_t mac[6])
 {
-    if (cmd_add_rb == NULL)
+    if (cmd_add_rb == nullptr)
     {
         printf("cmd_add_rb has not allocated\n");
         return 0;
@@ -189,7 +189,7 @@ int add_client(uint32_t ip, uint16_t port, uint8_t mac[6])
 
 int del_client(uint32_t ip, uint16_t port)
 {
-    if (cmd_del_rb == NULL)
+    if (cmd_del_rb == nullptr)
     {
         printf("cmd_del_rb has not allocated\n");
         return 0;
@@ -207,7 +207,7 @@ int del_client(uint32_t ip, uint16_t port)
 
 int handle_cmd(header_buffer_t *header_buffer)
 {
-    if (cmd_add_rb == NULL || cmd_del_rb == NULL)
+    if (cmd_add_rb == nullptr || cmd_del_rb == nullptr)
     {
         printf("rb not allocated");
         return -1;

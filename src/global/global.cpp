@@ -1,10 +1,10 @@
 #include "global.h"
 #include "sender.h"
 #include "cmd_buffer.h"
-
+#include "syn_task.h"
 volatile int force_quit = 0;
 uint16_t port_id = 0;
-struct rte_mempool *mbuf_pool = NULL;
+struct rte_mempool *mbuf_pool = nullptr;
 
 static struct rte_eth_conf port_conf = {
     .txmode = {
@@ -34,14 +34,22 @@ static void dpdk_init(int argc, char *argv[])
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d\n", ret);
 
-    rte_eth_rx_queue_setup(PORT_ID, 0, 128, rte_eth_dev_socket_id(PORT_ID), NULL, mbuf_pool);
-    rte_eth_tx_queue_setup(PORT_ID, 0, 128, rte_eth_dev_socket_id(PORT_ID), NULL);
+    rte_eth_rx_queue_setup(PORT_ID, 0, 512, rte_eth_dev_socket_id(PORT_ID), nullptr, mbuf_pool);
+    rte_eth_tx_queue_setup(PORT_ID, 0, 512, rte_eth_dev_socket_id(PORT_ID), nullptr);
+
+    rte_eth_tx_queue_setup(PORT_ID, 1, 512, rte_eth_dev_socket_id(PORT_ID), nullptr);
     rte_eth_dev_start(PORT_ID);
+}
+
+void init_buffer_pool()
+{
+    syn_task_buffer_t::get_instance().init(SYN_TASK_BUFFER_CAPACITY);
 }
 
 void global_init(int argc, char *argv[])
 {
     dpdk_init(argc, argv);
     init_cmd_buffer(BUFFER_SIZE);
-    // sender_init(BUFFER_SIZE, SRC_IP, SERVER_PORT);
+    init_buffer_pool();
+    // sender_init(BUFFER_SIZE, SERVER_IP, SERVER_PORT);
 }

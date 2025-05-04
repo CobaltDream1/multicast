@@ -1,5 +1,3 @@
-#ifndef TIME_WHEEL_H
-#define TIME_WHEEL_H
 #include "time_wheel.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,18 +10,12 @@
 
 #define MAX_EVENTS 10
 
-int time_wheel_t::time_wheel_init(int slot_count, int tick_interval)
+int time_wheel_t::time_wheel_init(size_t slot_count, int tick_interval)
 {
-    this->slots = (task_t **)malloc(slot_count * sizeof(task_t *));
-    if (this->slots == NULL)
+    this->slots = std::vector<std::vector<task_t *>>(slot_count);
+    for (size_t i = 0; i < slot_count; i++)
     {
-        printf("failed to malloc for time wheel slots\n");
-        return 0;
-    }
-
-    for (int i = 0; i < slot_count; i++)
-    {
-        this->slots[i] = NULL;
+        this->slots[i] = std::vector<task_t *>(0);
     }
     this->current_slot = 0;
     this->slot_count = slot_count;
@@ -33,41 +25,33 @@ int time_wheel_t::time_wheel_init(int slot_count, int tick_interval)
 }
 
 // 添加任务到时间轮
-void time_wheel_t::add_task(int timeout_seconds, task_callback cb, void *arg)
+void time_wheel_t::add_task(task_t *task)
 {
-    int ticks = timeout_seconds / this->tick_interval;
+    int ticks = task->time / this->tick_interval;
     int rotation = ticks / this->slot_count;
     int slot = (this->current_slot + (ticks % this->slot_count)) % this->slot_count;
 
-    task_t *task = (task_t *)malloc(sizeof(task_t));
     task->rotation = rotation;
-    task->cb = cb;
-    task->arg = arg;
-    task->next = this->slots[slot];
-    this->slots[slot] = task;
+    this->slots[slot].push_back(task);
 
     printf("Add task to slot %d (rotation=%d)\n", slot, rotation);
 }
 
-// 执行当前槽的任务
 void time_wheel_t::exec_slot()
 {
-    task_t **pp = &slots[this->current_slot];
-    while (*pp)
-    {
-        task_t *t = *pp;
-        if (t->rotation > 0)
+    std::vector<task_t *> &slot = slots[this->current_slot];
+    for (auto it = slot.begin(); it != slot.end(); ) {
+        if ((*it)->rotation > 0)
         {
-            t->rotation--;
-            pp = &t->next;
+            (*it)->rotation--;
         }
-        else
-        {
-            // 执行任务
-            t->cb(t->arg);
-            *pp = t->next;
-            free(t);
+        else {
+            (*it)->handle();
+            delete (*it);
+            it = slot.erase(it);
+            continue;
         }
+        ++it;
     }
 
     this->current_slot = (this->current_slot + 1) % this->slot_count;
@@ -80,7 +64,7 @@ void time_wheel_t::exec_slot()
 //         .it_value.tv_sec = TICK_INTERVAL,
 //         .it_interval.tv_sec = TICK_INTERVAL,
 //     };
-//     timerfd_settime(tfd, 0, &new_value, NULL);
+//     timerfd_settime(tfd, 0, &new_value, nullptr);
 
 //     int epfd = epoll_create1(0);
 //     struct epoll_event ev = {
@@ -109,5 +93,3 @@ void time_wheel_t::exec_slot()
 //     close(epfd);
 //     return 0;
 // }
-
-#endif

@@ -2,74 +2,97 @@
 #include <stdlib.h>
 #include <string.h>
 
-int ring_buffer_init(ring_buffer_t *rb, size_t capacity, size_t element_size)
+int ring_buffer_t::init(size_t capacity, size_t element_size)
 {
-    rb->buffer = malloc(capacity * element_size);
-    if (!rb->buffer)
+    this->buffer = malloc(capacity * element_size);
+    if (!this->buffer)
         return -1;
-    rb->capacity = capacity;
-    rb->element_size = element_size;
-    rb->write_index = 0;
-    rb->read_index = 0;
+    this->capacity = capacity;
+    this->element_size = element_size;
+    this->write_index = 0;
+    this->read_index = 0;
+
     return 0;
 }
 
-void ring_buffer_free(ring_buffer_t *rb)
+void ring_buffer_t::free_buffer()
 {
-    if (rb != NULL)
-    {
-        free(rb->buffer);
-        free(rb);
-    }
+    free(this->buffer);
 }
 
-int ring_buffer_is_empty(const ring_buffer_t *rb)
+void ring_buffer_t::reset()
 {
-    return rb->write_index == rb->read_index;
+    this->write_index = 0;
+    this->read_index = 0;
 }
 
-int ring_buffer_is_full(const ring_buffer_t *rb)
+
+int ring_buffer_t::is_empty()
 {
-    return ((rb->write_index + 1) % rb->capacity) == rb->read_index;
+    return this->write_index == this->read_index;
 }
 
-int ring_buffer_push(ring_buffer_t *rb, const void *item)
+int ring_buffer_t::is_full()
 {
-    if (ring_buffer_is_full(rb))
+    return ((this->write_index + 1) % this->capacity) == this->read_index;
+}
+
+int ring_buffer_t::push(const void *item)
+{
+    if (is_full())
         return -1;
-    memcpy((char *)rb->buffer + rb->write_index * rb->element_size, item, rb->element_size);
-    rb->write_index = (rb->write_index + 1) % rb->capacity;
+    memcpy((char *)this->buffer + this->write_index * this->element_size, item, this->element_size);
+    this->write_index = (this->write_index + 1) % this->capacity;
     return 0;
 }
 
-int ring_buffer_pop(ring_buffer_t *rb, void *item)
+int ring_buffer_t::pop(void *item)
 {
-    if (ring_buffer_is_empty(rb))
+    if (is_empty())
     {
         return -1;
     }
-    if (item != NULL)
+    if (item != nullptr)
     {
-        memcpy(item, (char *)rb->buffer + rb->read_index * rb->element_size, rb->element_size);
+        memcpy(item, (char *)this->buffer + this->read_index * this->element_size, this->element_size);
     }
-    rb->read_index = (rb->read_index + 1) % rb->capacity;
-    return 0;
+    this->read_index = (this->read_index + 1) % this->capacity;
+
+    return 1;
 }
 
-int ring_buffer_get_available(ring_buffer_t *rb)
+void ring_buffer_t::handle(std::function<void(void *)> callback)
 {
-    size_t buffer_write = rb->write_index;
-    size_t buffer_read = rb->read_index;
-    size_t buffer_max = rb->capacity;
-
+    size_t buffer_write = this->write_index;
+    size_t buffer_read = this->read_index;
+    size_t buffer_max = this->capacity;
     size_t buffer_num = (buffer_write + buffer_max - buffer_read) % buffer_max;
 
-    return buffer_num;
+    for (size_t i = 0; i < buffer_num; i++)
+    {
+        size_t buffer_read = this->read_index;
+
+        void *target = this->buffer + this->element_size * buffer_read;
+        callback(target);
+
+        this->read_index = (this->read_index + 1) % this->capacity;
+    }
 }
 
-void* ring_buffer_get_one(ring_buffer_t *rb)
-{
-    size_t buffer_read = rb->read_index;
+// int ring_buffer_t::get_available()
+// {
+//     size_t buffer_write = this->write_index;
+//     size_t buffer_read = this->read_index;
+//     size_t buffer_max = this->capacity;
 
-    return rb->buffer + rb->element_size * buffer_read;
-}
+//     size_t buffer_num = (buffer_write + buffer_max - buffer_read) % buffer_max;
+
+//     return buffer_num;
+// }
+
+// void *ring_buffer_t::get_one()
+// {
+//     size_t buffer_read = this->read_index;
+
+//     return this->buffer + this->element_size * buffer_read;
+// }

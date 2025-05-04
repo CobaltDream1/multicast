@@ -1,104 +1,62 @@
 #include "cmd_buffer.h"
 #include "global.h"
+#include "client_buffer.h"
+#include "task_queue.h"
+#include "syn_task.h"
+#include "packet_handler.h"
 
-// 现在是根据内容去判断加入还是删除，后面可以改成根据timeout删除
 
-enum tcp_pkt_type
+inline uint32_t get_ip(struct rte_mbuf *mbuf)
 {
-    TCP_SYN,
-    TCP_SYN_CONFIRM,
-    TCP_ACK,
-    TCP_CLOSE,
-    TCP_CLOSE_CONFIRM,
-    TCP_NO_SUPPORT,
-};
+    uint8_t *pkt_data = rte_pktmbuf_mtod(mbuf, uint8_t *);
+    struct rte_ipv4_hdr *ip_hdr = (struct rte_ipv4_hdr *)(pkt_data + sizeof(struct rte_ether_hdr));
+    return ip_hdr->src_addr;
+}
 
-static int
-get_tcp_pkt_type(struct rte_mbuf *mbuf)
+inline int16_t get_port(struct rte_mbuf *mbuf)
 {
-    struct rte_ether_hdr *eth_hdr;
-    struct rte_ipv4_hdr *ip_hdr;
-    struct rte_tcp_hdr *tcp_hdr;
-    uint8_t *pkt_data;
+    uint8_t *pkt_data = rte_pktmbuf_mtod(mbuf, uint8_t *);
+    struct rte_tcp_hdr *tcp_hdr = (struct rte_tcp_hdr *)(pkt_data + sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
+    uint16_t port = tcp_hdr->src_port;
 
-    pkt_data = rte_pktmbuf_mtod(mbuf, uint8_t *);
+    return port;
+}
 
-    eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    // if (RTE_BE16(eth_hdr->ether_type) != RTE_ETHER_TYPE_IPV4)
-    // {
-    //     printf("Not an IPv4 packet\n");
-    //     return -1;
-    // }
-
-    ip_hdr = (struct rte_ipv4_hdr *)(pkt_data + sizeof(struct rte_ether_hdr));
-
-    // if (ip_hdr->next_proto_id != IPPROTO_UDP)
-    // {
-    //     printf("Not a UDP packet\n");
-    //     return -1;
-    // }
-
-    tcp_hdr = (struct rte_tcp_hdr *)((uint8_t *)ip_hdr + sizeof(struct rte_ipv4_hdr));
-
-    if (ip_hdr->dst_addr != SRC_IP || tcp_hdr->dst_port != SERVER_PORT)
+// 放置发送第二次握手的任务
+static int put_syn_ack_task(uint32_t ip, uint16_t port)
+{
+    int index = syn_task_buffer_t::get_instance().allocate();
+    if (index == -1)
     {
-        printf("target is not correct %u %u\n", ip_hdr->dst_addr, tcp_hdr->dst_port);
+        printf("failed to allocate syn task from buffer.\n");
         return -1;
     }
 
-    uint32_t ip = ip_hdr->src_addr;
-    uint16_t port = tcp_hdr->src_port;
-    uint8_t mac[6];
-    memcpy(mac, eth_hdr->src_addr.addr_bytes, 6);
-    printf("TCP packet: %u.%u.%u.%u:%u",
-           (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
-           (ip >> 8) & 0xFF, ip & 0xFF, port);
-    uint32_t flag = tcp_hdr->tcp_flags;
+    syn_task_t *task = syn_task_buffer_t::get_instance().find(index);
+    task->time = 0;
+    task->ip = ip;
+    task->port = port;
 
-    if (flag & RTE_TCP_SYN_FLAG)
-    {
-        return TCP_SYN;
-    }
-    if (flag & RTE_TCP_ACK_FLAG && tcp_hdr->recv_ack == 1)
-    {
-        return TCP_SYN_CONFIRM;
-    }
-    if (flag & RTE_TCP_ACK_FLAG && tcp_hdr->recv_ack != 1)
-    {
-        return TCP_ACK;
-    }
-    // TODO: close
+    task_queue_t::get_instance().add_task(task);
 
-    printf("received tcp pkt type no support\n");
-    return TCP_NO_SUPPORT;
 }
 
 static int handle_tcp_syn(struct rte_mbuf *mbuf)
 {
-    return 0;
-}
+    // 加入到client_buffer，发包，放置重传检测任务
+    client_buffer_t &CB = client_buffer_t::get_instance();
+    // 先看看有没有
+    uint32_t ip = get_ip(mbuf);
+    uint32_t port = get_port(mbuf);
+    client_info_t *client_info = CB.find(ip, port);
 
-static int handle_tcp_syn_confirm(struct rte_mbuf *mbuf)
-{
-    return 0;
-}
-
-static int handle_recv_tcp_pkt(struct rte_mbuf *mbuf)
-{
-    int type = get_tcp_pkt_type(mbuf);
-    if (type == -1)
-    {
-        printf("invalid type\n");
+    if(client_info != nullptr) {
         return -1;
     }
 
-    switch (type)
-    {
-    case TCP_SYN:
-        break;
-    case TCP_SYN_CONFIRM:
-        break;
-    }
+    CB.insert(ip, port);
+
+    return 0;
 }
 
 // 监听新用户的加入，将对应的命令写入ring_buffer
@@ -108,11 +66,6 @@ void *listen_client(void *p)
     uint16_t nb_rx;
 
     // uint8_t mac[6] = {0xb4, 0x96, 0x91, 0xb2, 0xac, 0x51};
-    // add_client(RTE_IPV4(192, 168, 1, 151), 1111, mac);
-    // add_client(RTE_IPV4(192, 168, 1, 151), 2222, mac);
-    // add_client(RTE_IPV4(192, 168, 1, 151), 3333, mac);
-    // add_client(RTE_IPV4(192, 168, 1, 151), 4444, mac);
-    // add_client(RTE_IPV4(192, 168, 1, 151), 5555, mac);
 
     while (!force_quit)
     {
@@ -121,10 +74,10 @@ void *listen_client(void *p)
         {
             for (int i = 0; i < nb_rx; i++)
             {
-                int type = get_tcp_pkt_type(bufs[i]);
+                int result = packet_handler_t::handle_packet(bufs[i]);
             }
         }
     }
 
-    return NULL;
+    return nullptr;
 }

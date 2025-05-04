@@ -1,56 +1,68 @@
-// #include <stdio.h>
-// #include <unistd.h>
-// #include <rte_malloc.h>
-// #include "listener.h"
-// #include "global.h"
-// #include "sender.h"
-// #include "cmd_buffer.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <rte_malloc.h>
+#include <rte_ip.h>
+#include <rte_tcp.h>
+#include <rte_ether.h>
+#include "listener.h"
+#include "global.h"
+#include "sender.h"
+#include "cmd_buffer.h"
 
 // static header_buffer_t header_buffer;
 
-// int sender_init(size_t max, uint32_t src_ip, uint32_t src_port)
-// {
-//     // 首先初始化header_buffer
-//     int result = header_buffer_init(&header_buffer, max);
-//     if (result != 1)
-//     {
-//         printf("failed to init header_buffer %d\n", result);
-//         return result;
-//     }
+int sender_init()
+{
+    return 1;
+}
+#define ARP_HDRLEN 28
+#define ETHER_TYPE_ARP 0x0806
+#define ARP_REQUEST 1
+#define ARP_REPLY 2
 
-//     // 然后给header_buffer填写初值，主要是src_ip, src_port这些
-//     for (int i = 0; i < max; i++)
-//     {
-//         header_t *cur_header = &header_buffer.buffer[i];
-//         struct rte_udp_hdr *udp = &cur_header->udp_header;
-//         struct rte_ipv4_hdr *ip = &cur_header->ip_header;
-//         struct rte_ether_hdr *eth = &cur_header->ethernet_header;
+int sender_t::reply_arp_req(struct rte_mbuf *pkt)
+{
+    struct rte_ether_hdr *eth_hdr = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
+    struct rte_arp_hdr *arp = (struct rte_arp_hdr *)(eth_hdr + 1);
 
-//         // 填写UDP头部
-//         udp->src_port = rte_cpu_to_be_16(src_port);
-//         // udp->dgram_len = 0;
-//         udp->dgram_cksum = 0;
+    if (arp->arp_opcode != rte_cpu_to_be_16(RTE_ARP_OP_REQUEST) ||
+        arp->arp_data.arp_tip != rte_cpu_to_be_32(SERVER_IP)) {
+    printf("arp: %u %u %u %u\n", arp->arp_opcode, arp->arp_data.arp_tip, rte_cpu_to_be_16(RTE_ARP_OP_REQUEST), rte_cpu_to_be_32(SERVER_IP));
+        return -1;
+    }
 
-//         // 填写IP头部
-//         ip->version_ihl = RTE_IPV4_VHL_DEF;
-//         ip->type_of_service = 0;
-//         // ip->total_length = 0;
-//         ip->packet_id = rte_cpu_to_be_16(0);
-//         ip->fragment_offset = 0;
-//         ip->time_to_live = 64;
-//         ip->next_proto_id = IPPROTO_UDP;
-//         ip->src_addr = rte_cpu_to_be_32(SRC_IP);
-//         // ip->dst_addr = rte_cpu_to_be_32(dst_ip);
-//         ip->hdr_checksum = 0;
-//         // 填写以太网头部
-//         struct rte_ether_addr src_mac;
-//         rte_eth_macaddr_get(PORT_ID, &src_mac);
-//         eth->src_addr = src_mac;
-//         eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
-//     }
+    struct rte_mbuf *reply = rte_pktmbuf_alloc(pkt->pool);
+    if (!reply)
+    {
+        printf("failed to allocate mbuf for arp reply.\n");
+        return -1;
+    }
 
-//     return 1;
-// }
+    struct rte_ether_hdr *eth_reply = rte_pktmbuf_mtod(reply, struct rte_ether_hdr *);
+    struct rte_arp_hdr *arp_reply = (struct rte_arp_hdr *)(eth_reply + 1);
+
+    // Ethernet header
+    eth_reply->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP);
+    rte_ether_addr_copy(&arp->arp_data.arp_sha, &eth_reply->dst_addr);
+    memcpy(&eth_reply->src_addr, SERVER_MAC, 6);
+
+    // ARP reply
+    arp_reply->arp_hardware = rte_cpu_to_be_16(RTE_ARP_HRD_ETHER);
+    arp_reply->arp_protocol = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
+    arp_reply->arp_hlen = RTE_ETHER_ADDR_LEN;
+    arp_reply->arp_plen = sizeof(uint32_t);
+    arp_reply->arp_opcode = rte_cpu_to_be_16(RTE_ARP_OP_REPLY);
+    memcpy(&arp_reply->arp_data.arp_sha, SERVER_MAC, 6);
+    arp_reply->arp_data.arp_sip = rte_cpu_to_be_32(SERVER_IP);
+    rte_ether_addr_copy(&arp->arp_data.arp_sha, &arp_reply->arp_data.arp_tha);
+    arp_reply->arp_data.arp_tip = arp->arp_data.arp_sip;
+
+    reply->data_len = sizeof(struct rte_ether_hdr) + sizeof(struct rte_arp_hdr);
+    reply->pkt_len = reply->data_len;
+
+    uint16_t result = rte_eth_tx_burst(port_id, 0, &reply, 1);
+    return (int)result;
+}
 
 // // 非scatter-gather的实现
 // // void send_udp_packet(char *payload, size_t payload_size)
@@ -60,13 +72,13 @@
 
 // //     struct rte_mbuf **tx_mbufs;
 // //     tx_mbufs = malloc(sizeof(struct rte_mbuf *) * total_packets);
-// //     if (tx_mbufs == NULL)
+// //     if (tx_mbufs == nullptr)
 // //         rte_exit(EXIT_FAILURE, "Cannot allocate tx_mbuf array\n");
 
 // //     // 先分配所有mbuf
 // //     for (uint32_t i = 0; i < total_packets; i++) {
 // //         struct rte_mbuf *mbuf = rte_pktmbuf_alloc(mbuf_pool);
-// //         if (mbuf == NULL)
+// //         if (mbuf == nullptr)
 // //             rte_exit(EXIT_FAILURE, "Failed to alloc mbuf\n");
 
 // //         tx_mbufs[i] = mbuf;
@@ -122,12 +134,12 @@
 //     uint8_t *headers_base = (uint8_t *)header_buffer.buffer;
 
 //     struct rte_mbuf **tx_mbufs = (struct rte_mbuf **)malloc(sizeof(struct rte_mbuf *) * total_packets);
-//     if (tx_mbufs == NULL)
+//     if (tx_mbufs == nullptr)
 //         rte_exit(EXIT_FAILURE, "Cannot allocate tx_mbuf array\n");
 
 //     // 准备 payload mbuf（所有包共用一个）
 //     struct rte_mbuf *payload_mbuf = rte_pktmbuf_alloc(mbuf_pool);
-//     if (payload_mbuf == NULL)
+//     if (payload_mbuf == nullptr)
 //         rte_exit(EXIT_FAILURE, "Failed to alloc payload mbuf\n");
 //     char *payload_mbuf_pointer = rte_pktmbuf_mtod(payload_mbuf, char *);
 //     rte_memcpy(payload_mbuf_pointer, payload, payload_size);
@@ -135,7 +147,7 @@
 //     payload_mbuf->data_len = payload_size;
 //     payload_mbuf->pkt_len = payload_size;
 //     payload_mbuf->nb_segs = 1;
-//     payload_mbuf->next = NULL;
+//     payload_mbuf->next = nullptr;
 //     payload_mbuf->ol_flags = 0;
 
 //     // 手动增加引用计数（因为多个包共用）
@@ -145,19 +157,19 @@
 //     for (uint32_t i = 0; i < total_packets; i++)
 //     {
 //         struct rte_mbuf *hdr_mbuf = rte_pktmbuf_alloc(mbuf_pool);
-//         if (hdr_mbuf == NULL)
+//         if (hdr_mbuf == nullptr)
 //             rte_exit(EXIT_FAILURE, "Failed to alloc header mbuf\n");
 
 //         // 把header挂成外部缓冲区
 //         uint8_t *header_ptr = headers_base + i * HEADER_SIZE;
 //         rte_iova_t iova = rte_malloc_virt2iova(headers_base) + i * HEADER_SIZE;
 //         rte_pktmbuf_attach_extbuf(hdr_mbuf, header_ptr, iova,
-//                                   HEADER_SIZE, NULL);
+//                                   HEADER_SIZE, nullptr);
 
 //         hdr_mbuf->data_len = HEADER_SIZE;
 //         hdr_mbuf->pkt_len = HEADER_SIZE;
 //         hdr_mbuf->nb_segs = 1;
-//         hdr_mbuf->next = NULL;
+//         hdr_mbuf->next = nullptr;
 
 //         hdr_mbuf->l2_len = sizeof(struct rte_ether_hdr);
 //         hdr_mbuf->l3_len = sizeof(struct rte_ipv4_hdr);
@@ -195,14 +207,14 @@
 // }
 
 // // 向所有客户端发送心跳包
-// void packet_sender()
-// {
-//     const char *payload = "Hello, multicast!!!";
-//     size_t payload_size = strlen(payload);
-//     while (1)
-//     {
-//         sleep(SEND_INTERVAL);
-//         handle_cmd(&header_buffer);
-//         send_udp_packet(payload, payload_size);
-//     }
-// }
+// // void packet_sender()
+// // {
+// //     const char *payload = "Hello, multicast!!!";
+// //     size_t payload_size = strlen(payload);
+// //     while (1)
+// //     {
+// //         sleep(SEND_INTERVAL);
+// //         handle_cmd(&header_buffer);
+// //         send_udp_packet(payload, payload_size);
+// //     }
+// // }

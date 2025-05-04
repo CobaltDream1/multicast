@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <functional>
 
 struct ring_buffer_t
 {
@@ -9,17 +10,19 @@ struct ring_buffer_t
     size_t write_index;
     size_t read_index;
     int full;
+
+    int init(size_t capacity, size_t element_size);
+    void reset();
+    void free_buffer();
+    
+    int push(const void *item);
+    int pop(void *item);
+    
+    // 一次性把所有的处理掉
+    void handle(std::function<void(void *)> callback);
+    
+    int is_empty();
+    int is_full();
 };
 
-int ring_buffer_init(ring_buffer_t *rb, size_t capacity, size_t element_size);
-void ring_buffer_free(ring_buffer_t *rb);
 
-int ring_buffer_push(ring_buffer_t *rb, const void *item);
-int ring_buffer_pop(ring_buffer_t *rb, void *item);
-
-// 放在一起用
-int ring_buffer_get_available(ring_buffer_t *rb);
-void *ring_buffer_get_one(ring_buffer_t *rb);
-
-int ring_buffer_is_empty(const ring_buffer_t *rb);
-int ring_buffer_is_full(const ring_buffer_t *rb);
